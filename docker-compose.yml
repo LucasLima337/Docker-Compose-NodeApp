@@ -1,0 +1,49 @@
+version: '3'
+
+services:
+
+  server:
+    build: ./node
+    image: node-server:latest
+    container_name: node-server
+    entrypoint: dockerize -wait tcp://db:3306 node index.js -timeout 30s
+    tty: true
+    volumes:
+      - ./node:/src/app/node
+    networks:
+      - nodenet
+    depends_on:
+      - db
+  
+  proxy:
+    build: ./nginx
+    image: nginx-proxy:latest
+    container_name: nginx-proxy
+    entrypoint: dockerize -wait tcp://db:3306 -wait tcp://server:3000 -timeout 30s
+    command: ["nginx", "-g", "daemon off;"]
+    tty: true
+    ports:
+      - 8080:80
+    networks:
+      - nodenet
+    depends_on:
+      - server
+      - db
+    
+  db:
+    image: mysql:5.7
+    container_name: db
+    restart: always
+    tty: true
+    volumes:
+      - ./mysql:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: nodedb
+    networks:
+      - nodenet
+
+networks:
+  nodenet:
+    name: nodenet
+    driver: bridge
